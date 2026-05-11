@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e;
+      --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* Header */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 28px; border-bottom: 1px solid var(--border);
+      background: var(--card); position: sticky; top: 0; z-index: 100;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.2rem; font-weight: 700; cursor: pointer;
+      background: none; border: none; color: var(--text);
+    }
+    .header-right { display: flex; align-items: center; gap: 16px; font-size: .8rem; color: var(--muted); }
+    .dot { width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;display:inline-block;margin-right:5px; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.25} }
+    .refresh-btn {
+      background:none;border:1px solid var(--border);color:var(--text);
+      padding:5px 14px;border-radius:6px;cursor:pointer;font-size:.8rem;transition:background .2s;
+    }
+    .refresh-btn:hover { background:var(--border); }
+
+    /* Market bar */
+    .market-bar {
+      background:#0a0e14;border-bottom:1px solid var(--border);
+      padding:7px 28px;display:flex;gap:24px;flex-wrap:wrap;font-size:.76rem;color:var(--muted);
+    }
+    .market-bar b { color:var(--text); }
+
+    /* Main */
+    main { padding:24px 28px; max-width:1400px; margin:0 auto; }
+    .section-title {
+      font-size:.7rem;font-weight:700;letter-spacing:.08em;
+      color:var(--muted);text-transform:uppercase;margin-bottom:14px;
+    }
+
+    /* ── Dashboard ── */
+    .coins-grid {
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:18px;
+    }
+    .coin-card {
+      background:var(--card);border:1px solid var(--border);border-radius:12px;
+      overflow:hidden;cursor:pointer;transition:border-color .2s, transform .15s;
+    }
+    .coin-card:hover { border-color:var(--blue); transform:translateY(-2px); }
+    .coin-header {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 18px 12px;border-bottom:1px solid var(--border);
+    }
+    .coin-left { display:flex;align-items:center;gap:11px; }
+    .coin-logo { width:36px;height:36px;border-radius:50%; }
+    .coin-name { font-weight:700;font-size:.95rem; }
+    .coin-symbol { font-size:.72rem;color:var(--muted);text-transform:uppercase; }
+    .coin-price { font-size:1.28rem;font-weight:700;text-align:right; }
+    .coin-change {
+      font-size:.78rem;font-weight:700;text-align:right;
+      padding:3px 8px;border-radius:20px;margin-top:4px;display:inline-block;
+    }
+    .pos { background:#3fb95022;color:var(--green); }
+    .neg { background:#f8514922;color:var(--red); }
+    .perf-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border); }
+    .perf-cell { background:var(--card);padding:9px 6px;text-align:center; }
+    .perf-label { font-size:.62rem;color:var(--muted);margin-bottom:3px; }
+    .perf-val { font-size:.8rem;font-weight:700; }
+    .mini-chart-wrap { padding:12px 18px 4px; }
+    .mini-chart-wrap canvas { width:100%!important;height:72px!important; }
+    .open-hint { padding:8px 18px 12px;font-size:.72rem;color:var(--muted); }
+
+    /* ── Vista detalle ── */
+    .view-enter { animation: fadeIn .22s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .back-btn {
+      display:inline-flex;align-items:center;gap:7px;
+      background:none;border:1px solid var(--border);color:var(--text);
+      padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.83rem;
+      transition:background .2s;margin-bottom:22px;
+    }
+    .back-btn:hover { background:var(--border); }
+
+    .detail-hero {
+      display:flex;align-items:center;justify-content:space-between;
+      flex-wrap:wrap;gap:16px;margin-bottom:28px;
+    }
+    .detail-coin-info { display:flex;align-items:center;gap:16px; }
+    .detail-logo { width:56px;height:56px;border-radius:50%; }
+    .detail-name { font-size:1.8rem;font-weight:700; }
+    .detail-symbol { font-size:.85rem;color:var(--muted);text-transform:uppercase;margin-top:3px; }
+    .detail-price { font-size:2rem;font-weight:700;text-align:right; }
+    .detail-change { font-size:.95rem;font-weight:700;padding:5px 12px;border-radius:20px;margin-top:6px;display:inline-block; }
+
+    .detail-perf-grid {
+      display:grid;grid-template-columns:repeat(6,1fr);
+      gap:1px;background:var(--border);border-radius:12px;overflow:hidden;margin-bottom:28px;
+    }
+    .detail-perf-cell { background:var(--card);padding:14px 8px;text-align:center; }
+    .detail-perf-label { font-size:.7rem;color:var(--muted);margin-bottom:6px; }
+    .detail-perf-val { font-size:1.05rem;font-weight:700; }
+
+    .chart-card {
+      background:var(--card);border:1px solid var(--border);
+      border-radius:12px;padding:20px;margin-bottom:28px;
+    }
+    .chart-card canvas { width:100%!important;height:380px!important; }
+
+    .period-tabs { display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap; }
+    .period-tab {
+      background:none;border:1px solid var(--border);color:var(--muted);
+      padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.82rem;transition:all .2s;
+    }
+    .period-tab.active { background:var(--blue);border-color:var(--blue);color:#fff; }
+    .period-tab:hover:not(.active) { border-color:var(--text);color:var(--text); }
+
+    .log-card { background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px; }
+    .log-card-title {
+      font-size:.7rem;font-weight:700;text-transform:uppercase;
+      letter-spacing:.07em;color:var(--muted);margin-bottom:14px;
+    }
+    .daily-log { display:flex;gap:7px;flex-wrap:wrap; }
+    .day-pill {
+      display:flex;flex-direction:column;align-items:center;
+      background:#21262d;border-radius:9px;padding:8px 10px;min-width:58px;font-size:.73rem;
+    }
+    .dp-date { color:var(--muted);margin-bottom:3px; }
+    .dp-val  { font-weight:700; }
+
+    /* Spinner / error */
+    .spinner { display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .placeholder { display:flex;align-items:center;justify-content:center;height:110px;color:var(--muted);gap:10px;font-size:.83rem; }
+    .error-msg { background:#f8514915;border:1px solid #f8514933;color:var(--red);padding:12px 18px;border-radius:8px;font-size:.82rem;margin-bottom:20px; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
+
+    @media(max-width:680px){
+      main{padding:14px} header{padding:12px 14px} .market-bar{padding:7px 14px}
+      .coins-grid{grid-template-columns:1fr}
+      .perf-grid,.detail-perf-grid{grid-template-columns:repeat(3,1fr)}
+      .detail-name{font-size:1.3rem} .detail-price{font-size:1.4rem}
+      .chart-card canvas{height:240px!important}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <button class="logo" onclick="goHome()">📊 Crypto Dashboard</button>
+  <div class="header-right">
+    <span><span class="dot"></span><span id="status-text">Cargando…</span></span>
+    <button class="refresh-btn" onclick="fetchAll()">↻ Actualizar</button>
+  </div>
+</header>
+
+<div class="market-bar" id="market-bar"><span>Cargando…</span></div>
+
+<main>
+  <div id="error-banner"></div>
+  <div id="app"></div>
+</main>
+
+<script>
+/* ══════════════════════════════════════
+   CONFIG
+══════════════════════════════════════ */
+const COINS = [
+  { id:'bitcoin',     symbol:'BTC', pair:'BTCUSDT', name:'Bitcoin',  color:'#f7931a', logo:'https://assets.coingecko.com/coins/images/1/small/bitcoin.png' },
+  { id:'ethereum',    symbol:'ETH', pair:'ETHUSDT', name:'Ethereum', color:'#627eea', logo:'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
+  { id:'solana',      symbol:'SOL', pair:'SOLUSDT', name:'Solana',   color:'#9945ff', logo:'https://assets.coingecko.com/coins/images/4128/small/solana.png' },
+  { id:'binancecoin', symbol:'BNB', pair:'BNBUSDT', name:'BNB',      color:'#f0b90b', logo:'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png' },
+  { id:'ripple',      symbol:'XRP', pair:'XRPUSDT', name:'XRP',      color:'#346aa9', logo:'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png' },
+  { id:'cardano',     symbol:'ADA', pair:'ADAUSDT', name:'Cardano',  color:'#0055d4', logo:'https://assets.coingecko.com/coins/images/975/small/cardano.png' },
+];
+
+const PERIODS = [
+  { label:'24 horas',  interval:'1h', limit:24  },
+  { label:'3 días',    interval:'1h', limit:72  },
+  { label:'5 días',    interval:'4h', limit:30  },
+  { label:'2 semanas', interval:'4h', limit:84  },
+  { label:'1 mes',     interval:'1d', limit:30  },
+  { label:'1 año',     interval:'1d', limit:365 },
+];
+const PERF_DAYS   = [1, 3, 5, 14, 30, 365];
+const PERF_LABELS = ['24 horas','3 días','5 días','2 semanas','1 mes','1 año'];
+const PERF_SHORT  = ['24h','3D','5D','2S','1M','1A'];
+const STORAGE_KEY = 'crypto_daily_log_v3';
+const BINANCE     = 'https://api.binance.com/api/v3';
+
+/* Estado global en memoria */
+let _tickers    = [];
+let _allKlines  = {};   // { coinId: klines[] }
+let _kCache     = {};   // { "PAIR_interval_limit": klines[] }
+let _miniCharts = {};
+let _detailChart = null;
+let _view       = 'dashboard';   // 'dashboard' | 'detail'
+let _refreshTimer = null;
+
+/* ══════════════════════════════════════
+   LOCAL STORAGE
+══════════════════════════════════════ */
+function loadLog() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; } }
+function saveLog(l) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(l)); } catch {} }
+function recordDay(id, price, p24) {
+  const log = loadLog(), today = new Date().toISOString().slice(0,10);
+  if (!log[id]) log[id] = {};
+  log[id][today] = { price:+price, change:+p24.toFixed(2) };
+  saveLog(log);
+}
+function getDailyLog(id) {
+  return Object.entries(loadLog()[id] || {}).sort(([a],[b])=>a.localeCompare(b)).slice(-60);
+}
+
+/* ══════════════════════════════════════
+   FORMATO
+══════════════════════════════════════ */
+const fmt = n => n >= 1
+  ? n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})
+  : n.toLocaleString('es-ES',{minimumFractionDigits:4,maximumFractionDigits:6});
+const pct = n => (n>=0?'+':'')+n.toFixed(2)+'%';
+const cls = n => n>=0?'pos':'neg';
+const shortDate = iso => { const [,m,d]=iso.split('-'); return `${d}/${m}`; };
+
+/* ══════════════════════════════════════
+   API
+══════════════════════════════════════ */
+async function fetchTicker24h() {
+  const symbols = JSON.stringify(COINS.map(c=>c.pair));
+  const res = await fetch(`${BINANCE}/ticker/24hr?symbols=${encodeURIComponent(symbols)}`);
+  if (!res.ok) throw new Error('Binance ticker ' + res.status);
+  return res.json();
+}
+async function fetchKlines(pair, interval, limit) {
+  const key = `${pair}_${interval}_${limit}`;
+  if (_kCache[key]) return _kCache[key];
+  const res = await fetch(`${BINANCE}/klines?symbol=${pair}&interval=${interval}&limit=${limit}`);
+  if (!res.ok) throw new Error('klines ' + res.status);
+  _kCache[key] = await res.json();
+  return _kCache[key];
+}
+async function fetchGlobal() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/global',{signal:AbortSignal.timeout(5000)});
+    return res.ok ? res.json() : null;
+  } catch { return null; }
+}
+
+const kClose = k => parseFloat(k[4]);
+const kTime  = k => k[0];
+function calcPct(klines) {
+  if (!klines || klines.length < 2) return null;
+  const f=kClose(klines[0]), l=kClose(klines[klines.length-1]);
+  return ((l-f)/f)*100;
+}
+
+/* ══════════════════════════════════════
+   MARKET BAR
+══════════════════════════════════════ */
+function renderMarketBar(global) {
+  const parts = [];
+  if (global?.data) {
+    const d = global.data;
+    parts.push(`Cap. global: <b>$${(d.total_market_cap.usd/1e12).toFixed(2)}T</b>`);
+    parts.push(`Volumen 24h: <b>$${(d.total_volume.usd/1e9).toFixed(0)}B</b>`);
+    parts.push(`Dom. BTC: <b>${d.market_cap_percentage.bitcoin?.toFixed(1)}%</b>`);
+  }
+  _tickers.forEach(t => {
+    const coin = COINS.find(c=>c.pair===t.symbol);
+    if (!coin) return;
+    const p = parseFloat(t.priceChangePercent);
+    parts.push(`${coin.symbol}: <b style="color:${p>=0?'var(--green)':'var(--red)'}">${pct(p)}</b>`);
+  });
+  document.getElementById('market-bar').innerHTML = parts.map(p=>`<span>${p}</span>`).join('');
+}
+
+/* ══════════════════════════════════════
+   VISTA DASHBOARD
+══════════════════════════════════════ */
+function renderDashboard() {
+  _view = 'dashboard';
+  document.title = 'Crypto Dashboard';
+
+  // Destruir gráfica de detalle si existe
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <p class="section-title">Criptomonedas en tiempo real — haz clic para ver el detalle</p>
+    <div class="coins-grid" id="coins-grid"></div>`;
+
+  const grid = document.getElementById('coins-grid');
+
+  COINS.forEach(coin => {
+    const ticker = _tickers.find(t=>t.symbol===coin.pair);
+    if (!ticker) return;
+
+    const price  = parseFloat(ticker.lastPrice);
+    const pct24h = parseFloat(ticker.priceChangePercent);
+    const klines = _allKlines[coin.id] || [];
+
+    recordDay(coin.id, price, pct24h);
+
+    const perfs = PERF_DAYS.map((d,i) => i===0 ? pct24h : calcPct(klines.slice(-d)));
+    const spark  = klines.slice(-30).map(kClose);
+
+    const perfCells = PERF_SHORT.map((label,i) => {
+      const v = perfs[i];
+      return `<div class="perf-cell">
+        <div class="perf-label">${label}</div>
+        <div class="perf-val ${v!=null?cls(v):''}">${v!=null?pct(v):'—'}</div>
+      </div>`;
+    }).join('');
+
+    const card = document.createElement('div');
+    card.className = 'coin-card';
+    card.onclick   = () => showDetail(coin.id);
+    card.innerHTML = `
+      <div class="coin-header">
+        <div class="coin-left">
+          <img class="coin-logo" src="${coin.logo}" alt="${coin.name}" onerror="this.style.display='none'">
+          <div><div class="coin-name">${coin.name}</div><div class="coin-symbol">${coin.symbol}</div></div>
+        </div>
+        <div>
+          <div class="coin-price">$${fmt(price)}</div>
+          <div class="coin-change ${cls(pct24h)}">${pct(pct24h)} hoy</div>
+        </div>
+      </div>
+      <div class="mini-chart-wrap"><canvas id="spark-${coin.id}"></canvas></div>
+      <div class="perf-grid">${perfCells}</div>
+      <div class="open-hint">↗ Haz clic para ver el detalle completo</div>
+    `;
+    grid.appendChild(card);
+
+    if (spark.length > 1) {
+      const ctx = document.getElementById(`spark-${coin.id}`)?.getContext('2d');
+      if (ctx) {
+        if (_miniCharts[coin.id]) _miniCharts[coin.id].destroy();
+        const up = spark[spark.length-1] >= spark[0];
+        _miniCharts[coin.id] = new Chart(ctx, {
+          type:'line',
+          data:{ labels:spark.map((_,i)=>i), datasets:[{
+            data:spark, borderColor:up?'#3fb950':'#f85149',
+            backgroundColor:up?'#3fb95015':'#f8514915',
+            borderWidth:1.5, pointRadius:0, fill:true, tension:0.4
+          }]},
+          options:{
+            animation:false,
+            plugins:{legend:{display:false},tooltip:{enabled:false}},
+            scales:{x:{display:false},y:{display:false}},
+            responsive:true, maintainAspectRatio:false,
+          }
+        });
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════
+   VISTA DETALLE
+══════════════════════════════════════ */
+function showDetail(coinId) {
+  _view = 'detail';
+  const coin   = COINS.find(c=>c.id===coinId);
+  const ticker = _tickers.find(t=>t.symbol===coin.pair);
+  const price  = ticker ? parseFloat(ticker.lastPrice)          : 0;
+  const pct24h = ticker ? parseFloat(ticker.priceChangePercent) : 0;
+  const klines = _allKlines[coinId] || [];
+
+  const perfs = PERF_DAYS.map((d,i) => i===0 ? pct24h : calcPct(klines.slice(-d)));
+  const log   = getDailyLog(coinId);
+
+  const perfCells = PERF_LABELS.map((label,i) => {
+    const v = perfs[i];
+    return `<div class="detail-perf-cell">
+      <div class="detail-perf-label">${label}</div>
+      <div class="detail-perf-val ${v!=null?cls(v):''}">${v!=null?pct(v):'—'}</div>
+    </div>`;
+  }).join('');
+
+  const pills = log.length
+    ? log.map(([date,e])=>`
+        <div class="day-pill">
+          <span class="dp-date">${shortDate(date)}</span>
+          <span class="dp-val ${cls(e.change)}">${pct(e.change)}</span>
+        </div>`).join('')
+    : '<span style="color:var(--muted);font-size:.78rem">Sin datos guardados aún. Vuelve mañana.</span>';
+
+  const tabsHtml = PERIODS.map((p,i)=>
+    `<button class="period-tab${i===4?' active':''}"
+      onclick="switchPeriod('${coinId}','${p.interval}',${p.limit},this)">${p.label}</button>`
+  ).join('');
+
+  document.title = `${coin.name} — Crypto Dashboard`;
+
+  // Destruir mini charts del dashboard
+  Object.values(_miniCharts).forEach(c=>c.destroy());
+  _miniCharts = {};
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="view-enter">
+      <button class="back-btn" onclick="goHome()">← Volver al dashboard</button>
+
+      <div class="detail-hero">
+        <div class="detail-coin-info">
+          <img class="detail-logo" src="${coin.logo}" alt="${coin.name}" onerror="this.style.display='none'">
+          <div>
+            <div class="detail-name">${coin.name}</div>
+            <div class="detail-symbol">${coin.symbol}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="detail-price">$${fmt(price)}</div>
+          <div class="detail-change ${cls(pct24h)}">${pct(pct24h)} hoy</div>
+        </div>
+      </div>
+
+      <div class="detail-perf-grid">${perfCells}</div>
+
+      <div class="chart-card">
+        <div class="period-tabs">${tabsHtml}</div>
+        <canvas id="detail-chart"></canvas>
+      </div>
+
+      <div class="log-card">
+        <div class="log-card-title">Rendimiento diario guardado</div>
+        <div class="daily-log">${pills}</div>
+      </div>
+    </div>`;
+
+  window.scrollTo(0,0);
+  switchPeriod(coinId, '1d', 30, document.querySelector('.period-tab.active'));
+}
+
+async function switchPeriod(coinId, interval, limit, btn) {
+  document.querySelectorAll('.period-tab').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const coin = COINS.find(c=>c.id===coinId);
+  try {
+    const klines = await fetchKlines(coin.pair, interval, limit);
+    const labels = klines.map(k => {
+      const d = new Date(kTime(k));
+      return (interval==='1h'||interval==='4h')
+        ? d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
+        : d.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'});
+    });
+    const prices = klines.map(kClose);
+    const canvas = document.getElementById('detail-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (_detailChart) _detailChart.destroy();
+
+    const gradient = ctx.createLinearGradient(0,0,0,380);
+    gradient.addColorStop(0, coin.color+'55');
+    gradient.addColorStop(1, coin.color+'00');
+
+    _detailChart = new Chart(ctx, {
+      type:'line',
+      data:{ labels, datasets:[{
+        data:prices, borderColor:coin.color, backgroundColor:gradient,
+        borderWidth:2.5, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.3
+      }]},
+      options:{
+        animation:{duration:300},
+        plugins:{
+          legend:{display:false},
+          tooltip:{ mode:'index', intersect:false, callbacks:{ label:c=>`$${fmt(c.raw)}` } }
+        },
+        scales:{
+          x:{ ticks:{color:'#8b949e',maxTicksLimit:10,font:{size:11}}, grid:{color:'#21262d'} },
+          y:{ ticks:{color:'#8b949e',font:{size:11}, callback:v=>v>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+fmt(v)}, grid:{color:'#21262d'} }
+        },
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'nearest',axis:'x',intersect:false},
+      }
+    });
+  } catch(e) { console.warn('chart error', e); }
+}
+
+/* ══════════════════════════════════════
+   NAVEGACIÓN
+══════════════════════════════════════ */
+function goHome() {
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+  renderDashboard();
+  window.scrollTo(0,0);
+}
+
+/* ══════════════════════════════════════
+   FETCH PRINCIPAL
+══════════════════════════════════════ */
+async function fetchAll() {
+  document.getElementById('status-text').textContent = 'Actualizando…';
+  document.getElementById('error-banner').innerHTML  = '';
+  _kCache = {};
+
+  try {
+    const [tickers, global, ...allK] = await Promise.all([
+      fetchTicker24h(),
+      fetchGlobal(),
+      ...COINS.map(c => fetchKlines(c.pair,'1d',365).catch(()=>[]))
+    ]);
+
+    _tickers = tickers;
+    COINS.forEach((c,i) => { _allKlines[c.id] = allK[i]; });
+
+    renderMarketBar(global);
+
+    // Solo redibujar el dashboard si estamos en esa vista
+    if (_view === 'dashboard') renderDashboard();
+
+    const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('status-text').textContent = `Actualizado: ${now}`;
+  } catch(e) {
+    console.error(e);
+    document.getElementById('status-text').textContent = 'Error';
+    document.getElementById('error-banner').innerHTML =
+      `<div class="error-msg">⚠️ No se pudieron cargar los datos: <b>${e.message}</b><br>
+       <small>Comprueba tu conexión e intenta de nuevo.</small></div>`;
+  }
+}
+
+fetchAll();
+setInterval(fetchAll, 60_000);
+</script>
+</body>
+</html>

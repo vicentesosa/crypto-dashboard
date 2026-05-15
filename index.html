@@ -984,7 +984,7 @@ function buildHeroHeadline(){
   const p=btcTicker?parseFloat(btcTicker.priceChangePercent):null;
   if(p!==null){
     if(p>2)  return ['Bitcoin', 'sube', ' con fuerza hoy.'];
-    if(p<-2) return ['El mercado', 'cae', ', el horizonte aguanta.'];
+    if(p<-2) return ['Los precios', 'caen', ', el dato manda.'];
   }
   const opts=[
     ['El mercado','duda',', pero no descansa.'],
@@ -1416,7 +1416,7 @@ function renderStockCards(){
     card.innerHTML=`
       <div class="card-top-row">
         <div class="card-coin-left">
-          <img class="coin-logo" src="${stock.logo}" alt="${stock.name}" onerror="this.style.display='none'">
+          <img class="coin-logo" src="${stock.logo}" alt="${stock.name}" onerror="this.onerror=null;this.src='https://www.google.com/s2/favicons?domain='+encodeURIComponent('${stock.domain}')+'&sz=128'">
           <div>
             <div class="coin-name">${stock.name}</div>
             <div class="coin-sym">${stock.symbol}</div>
@@ -1443,12 +1443,6 @@ async function renderMercado(){
   if(_stockDetailChart){_stockDetailChart.destroy();_stockDetailChart=null;}
 
   document.getElementById('app').innerHTML=`
-    <div class="hero-section" style="padding-bottom:24px">
-      <div>
-        <div class="hero-date">MERCADO DE ACCIONES · NYSE &amp; NASDAQ</div>
-        <h1 class="hero-headline">Wall Street, <em>en tiempo real</em>.</h1>
-      </div>
-    </div>
     <div class="section-header">
       <div class="section-label">EN PORTADA</div>
       <div class="section-rule"></div>
